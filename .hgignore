@@ -1,3 +1,11 @@
 syntax: glob
 BitKeeper/*/*
 PENDING/*
+*~
+*.o
+*.so
+*.gizmo
+*.a
+*.map
+*.flash
+test-*
