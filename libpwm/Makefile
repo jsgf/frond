@@ -1,7 +1,7 @@
 
 CC=avr-gcc -mmcu=at90s2313 #-mtiny-stack
 AS=avr-gcc -mmcu=at90s2313 
-CFLAGS=-Wall -Os -DNDEBUG -DFRONDS2
+CFLAGS=-Wall -g -Os -DNDEBUG -DFRONDS2
 LDFLAGS=-Wl,-m,avr23xx 
 LD_HEX=-Wl,--oformat,ihex
 #LDFLAGS=-mava -Wl,--intel -L. -lpwm

@@ -1,5 +1,11 @@
 #include <stdio.h>
 #include <GL/glut.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <time.h>
+#include <signal.h>
 
 #define PWM_C
 #define PWM_SCALE	9
@@ -22,9 +28,18 @@ static unsigned char led[16];
 extern unsigned char C(GIZ,_init)(void);
 extern void C(GIZ,_pix)(unsigned char pix);
 
-static const char dens[] = " '.,:;~/+=^!$&*%@#";
+unsigned char getpeek(void);
 
 static int width, height;
+
+static int self = -1;
+#define MAXPEERS	32
+static int peers[MAXPEERS];
+static int npeers = 0;
+
+static volatile int *shared = NULL;
+
+static int peek, poke;
 
 static const float colours[][3] = {
 	{ 1, 1, 1 },		/* white */
@@ -40,6 +55,17 @@ static const float colours[][3] = {
 static int phasecol[] = { 0, 0, 0, 0, NCOL };
 
 static unsigned char ir_level;
+
+static void keyup(unsigned char k, int x, int y)
+{
+	switch (k) {
+	case 'P':
+	case 'p':
+		peek = 0;
+		break;
+	}
+	glutPostRedisplay();
+}
 
 static void keyboard(unsigned char k, int x, int y)
 {
@@ -64,13 +90,18 @@ static void keyboard(unsigned char k, int x, int y)
 	case '_':
 		ir_level -= 5;
 		break;
+
+	case 'p':
+	case 'P':
+		peek = 1;
+		break;
 	}
 
 	glutPostRedisplay();
 }
 
 static int pix;
-static int timebase = .1 * 1000;
+static int timebase = .01 * 1000;
 
 static void timer(int t)
 {
@@ -97,6 +128,26 @@ static void reshape(int w, int h)
 
 static unsigned char ir_weight;
 
+static void pokepeers(unsigned n)
+{
+	unsigned int i,m;
+
+	if (!shared)
+		return;
+
+	m = 1<<self;
+
+	for(i = 0; i < npeers; i++) {
+		int p = shared[peers[i]];
+		int op = p;
+		p &= ~m;
+		p |= (n<<self);
+		if (0 && op != p)
+			printf("%2d setting %2d %04x->%04x\n", self, peers[i], op, p);
+		shared[peers[i]] = p;
+	}
+}
+
 static void display()
 {
 	int i;
@@ -109,11 +160,36 @@ static void display()
 
 		C(GIZ,_pix)(pix);
 		prevpix = pix;
+
+		pokepeers(poke);
 	}
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
+	glTranslatef(5, 5, 0);
+
+	glBegin(GL_QUADS);
+
+	if (getpeek()) {
+		glColor3f(.75, .5, .25);
+		glVertex2i(0, 0);
+		glVertex2i(5, 0);
+		glVertex2i(5, 5);
+		glVertex2i(0, 5);
+	}
+	if (poke) {
+		glColor3f(.25, .5, .75);
+		glVertex2i(0+7, 0);
+		glVertex2i(5+7, 0);
+		glVertex2i(5+7, 5);
+		glVertex2i(0+7, 5);
+		poke = 0;
+	}
+
+	glEnd();
+	glLoadIdentity();
+	
 	glScalef(2, 2, 1);
 	glTranslatef(10, 10, 0);
 
@@ -145,6 +221,7 @@ static void display()
 		glVertex2i(i * 10 + c * 8, 2);
 		glVertex2i(i * 10, 2);
 	}
+
 	glEnd();
 
 
@@ -176,6 +253,7 @@ static void display()
 		glVertex2i(x * 10 + c * 8, 2);
 		glVertex2i(x * 10, 2);
 	}
+
 	glEnd();
 
 	glScalef(80./256, 1, 1);
@@ -202,7 +280,7 @@ static void display()
 	glVertex2i(ir_weight, 17);
 	glVertex2i(ir_weight, 18);
 	glVertex2i(0, 18);
-	
+
 	glEnd();
 
 	glutSwapBuffers();
@@ -229,21 +307,88 @@ void set_framerate(unsigned char fr)
 	timebase = s * 1000.;
 }
 
+#define SHARED "test.shared"
+
+static void cleanshared(void)
+{
+	pokepeers(0);
+	unlink(SHARED);
+}
+
+void handler(int sig)
+{
+	exit(0);
+}
+
+#if SEED == 0
+#define SEED 0x8cf5
+#endif
+
+static unsigned short rand_pool = SEED;
+
 int main(int argc, char **argv)
 {
+	char name[100];
 	int sz = C(GIZ,_init)();
+	int arg;
+
+	signal(SIGINT, handler);
+	signal(SIGTERM, handler);
 
 	SHBSS = malloc(sz);
 
 	glutInit(&argc, argv);
+
+	while((arg = getopt(argc, argv, "s:p:")) != EOF) {
+		switch(arg) {
+		case 's':
+			self = atoi(optarg);
+			break;
+		case 'p':
+			if (npeers == MAXPEERS) {
+				fprintf(stderr, "too many peers\n");
+				exit(1);
+			}
+			peers[npeers++] = atoi(optarg);
+			break;
+		}
+	}
+
+	if (self != -1) {
+		int fd = open(SHARED, O_RDWR|O_TRUNC|O_CREAT|O_EXCL, 0600);
+		if (fd == -1 && errno == EEXIST)
+			fd = open(SHARED, O_RDWR, 0600);
+		else
+			atexit(cleanshared);
+
+		if (fd == -1) {
+			perror("can't open " SHARED);
+			exit(1);
+		}
+
+		ftruncate(fd, sizeof(*shared) * MAXPEERS);
+		shared = mmap(NULL, sizeof(*shared) * MAXPEERS, 
+			      PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+		if (shared == (void *)-1) {
+			perror("mmap failed");
+			exit(0);
+		}
+	}
+
+	srandom(getpid() + time(NULL));
+	rand_pool = random() | 1;
+
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
-	glutInitWindowSize(400, 200);
-	glutInitWindowPosition(50, 50);
-	glutCreateWindow("frond");
+	//glutInitWindowSize(400, 200);
+	//glutInitWindowPosition(50, 50);
+	sprintf(name, "frond %d", self);
+	glutCreateWindow(name);
 
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
+	glutIgnoreKeyRepeat(1);
 	glutKeyboardFunc(keyboard);
+	glutKeyboardUpFunc(keyup);
 	glutTimerFunc(timebase, timer, timebase);
 
 	glutMainLoop();
@@ -264,12 +409,6 @@ void set_led(unsigned short mask, unsigned char level)
 		mask >>= 1;
 	}
 }
-
-#if SEED == 0
-#define SEED 0x8cf5
-#endif
-
-static unsigned short rand_pool = SEED;
 
 unsigned char rand(void)
 {
@@ -312,3 +451,17 @@ unsigned char ir_avg(void)
 	return ir_weight;
 }
 
+unsigned char getpeek(void)
+{
+	int ret = peek;
+
+	if (shared)
+		ret |= shared[self] != 0;
+
+	return ret;
+}
+
+void setpoke(unsigned char ch)
+{
+	poke = !!ch;
+}

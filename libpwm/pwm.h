@@ -28,6 +28,9 @@ unsigned char ir_input(void);
 
 void set_framerate(unsigned char fr);
 
+unsigned char getpeek(void);
+void setpoke(unsigned char);
+
 #define IR_LED	(1 << 0)		/* bottom LED is IR */
 
 #ifdef USE_FLASH
