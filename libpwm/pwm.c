@@ -324,9 +324,9 @@ static unsigned char ir_reading;
 
 // input interrupt from IR receiver on external INT0
 // on rising edge, sets ir_time to low period
+#if IRCOMM
 SIGNAL(SIG_INTERRUPT0)
 {
-#if IRCOMM
 	static unsigned char last;
 	unsigned char t;
 
@@ -350,8 +350,8 @@ SIGNAL(SIG_INTERRUPT0)
 	}
 #undef DEBUG
 
-#endif /* IRCOMM */
 }
+#endif /* IRCOMM */
 
 /* weighted average (most recent samples get heavier weighting) */
 unsigned char ir_avg(void)
@@ -381,7 +381,11 @@ unsigned char ir_avg(void)
 
 unsigned char ir_input(void)
 {
+#if IRCOMM
 	return ir_reading;
+#else  /* !IRCOMM */
+	return 0;
+#endif /* IRCOMM */
 }
 
 #if AUTODIM

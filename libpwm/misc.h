@@ -2,12 +2,16 @@
 #define MISC_H
 
 /* Enable interrupts and wait for an event;
-   leaves with interrupts disabled */
+   leaves with interrupts disabled.
+
+   NOTE: The AVR docs say that the sleep will run before any
+   interrupts are delivered after the sei.
+ */
 #define WAITWHILE(e)				\
 do {						\
 	while(e) {				\
-		sei();				\
-		asm volatile("sleep");		\
+		asm volatile("sei\n"		\
+			     "sleep");		\
 		cli();				\
 	}					\
 	/* leave interrupts disabled */		\

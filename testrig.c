@@ -101,7 +101,7 @@ static void keyboard(unsigned char k, int x, int y)
 }
 
 static int pix;
-static int timebase = .02 * 1000;
+static int timebase = .01 * 1000;
 
 static void timer(int t)
 {
@@ -320,47 +320,8 @@ void handler(int sig)
 	exit(0);
 }
 
-#if SEED == 0
-#define SEED 0x8cf5
-#endif
-
-static unsigned short rand_pool = SEED;
-
-unsigned char rand(void)
-{
-	unsigned short r = rand_pool;
-
-	if (r & 1) {
-		r >>= 1;
-		r ^= 0x8016;
-	} else
-		r >>= 1;
-
-	rand_pool = r;
-
-	return r;
-}
-
-#if SEED16 == 0
-#define SEED16 ((unsigned int)0xc3a8623d)
-#endif
-
-static unsigned int rand_pool16 = SEED16;
-
-unsigned short rand16(void)
-{
-	unsigned int r = rand_pool16;
-
-	if (r & 1) {
-		r >>= 1;
-		r ^= 0x6055F65b;
-	} else
-		r >>= 1;
-
-	rand_pool16 = r;
-
-	return r;
-}
+#include "libpwm/rand.c"
+#include "libpwm/rand16.c"
 
 int main(int argc, char **argv)
 {
@@ -417,6 +378,8 @@ int main(int argc, char **argv)
 			perror("mmap failed");
 			exit(0);
 		}
+
+		sleep(2);	/* wait for others */
 	}
 
 	do {

@@ -35,8 +35,10 @@ static const char *stname(enum state s)
 	return "???";
 }
 
+static enum state _prev_state = -1;
+
 #define DIM	0
-#define TEST(x)	
+#define TEST(x)	if (0 && st->state != _prev_state) { x; _prev_state = st->state; }
 #else  /* !TESTRIG */
 #define TEST(x)
 #define DIM	1
@@ -46,15 +48,26 @@ static const char *stname(enum state s)
 #define WOOGLEPROB	(.0002)	/* probability of entering WOOGLE at
 				   any particular moment */
 #define WOOGLETIME	75	/* time of WOOGLE display */
+#define WOOGLERAND	63	/* random bump on WOOGLETIME */
 #define EXCITABILITY	(.002)	/* probability of getting so excited
 				   in a WOOGLE that we poke our
 				   neighbours  */
-#define SHORTPOKE	2	/* shortest POKE time */
-#define BROODSCALE	2	/* scale on our poketime we spend brooding */
-#define FLASHTIME      	25	/* time we keep flashing after a poke */
-#define NUMBTIME	25	/* time we spend ignoring POKEs */
 
-#define LOWTEMP		5
+#define SHORTPOKE	2	/* shortest POKE time */
+#define POKERAND	7	/* random bump on SHORTPOKE */
+
+#define BROODSCALE	2	/* scale on our poketime we spend brooding */
+#define BROODRAND	15	/* random bump on brooding time */
+
+#define FLASHTIME      	25	/* time we keep flashing after a poke */
+#define FLASHRAND	31	/* random bump on FLASHTIME */
+
+#define NUMBTIME	25	/* time we spend ignoring POKEs */
+#define NUMBRAND	31	/* random bump on NUMBTIME */
+
+#define STUBBORNNUMB	0	/* if true, NUMB stays while peek is
+				   asserted, even after timeout */
+#define LOWTEMP		5	/* cellauto temp when in WOOGLE */
 
 #define RARE()		(rand() == 0 && rand() == 0)
 #define RANDPROB(p)	(rand16() <= ((unsigned short)(65536 * (p))))
@@ -77,9 +90,37 @@ static inline unsigned char rand()
 	return rand16();
 }
 
+static void led_out(struct st *st, unsigned char dim)
+{
+	unsigned char i;
+	unsigned short l;
+			
+	for(i = 1, l = (1 << 1); i < 16; i++, l <<= 1) {
+		unsigned char led = st->ledstate[i] >> (4+DIM);
+		if (dim)
+			led >>= (1+DIM);
+		set_led(l, led);
+	}
+}
+
+static void fade(struct st *st)
+{
+	unsigned char i;
+
+	for(i = 0; i < 16; i++) {
+		if (st->ledstate[i] > 8)
+			st->ledstate[i] -= 8;
+	}
+
+	led_out(st, 0);
+}
+
 static void cellauto(unsigned char pix, struct st *st, signed char ir)
 {
-	int i;
+	unsigned char i;
+
+	/* copy old state from next, because ledstate may have been cleared by fade() */
+	memcpy(st->ledstate, st->next, sizeof(st->ledstate));
 
 	for(i = 0; i < 16; i++)
 		if (st->ledstate[i] != 0)
@@ -122,17 +163,8 @@ static void cellauto(unsigned char pix, struct st *st, signed char ir)
 
 	memcpy(st->ledstate, st->next, sizeof(st->ledstate));
 
-	{
-		unsigned short l;
-		unsigned char dim = (ir >= -LOWTEMP && ir <= LOWTEMP);
-			
-		for(i = 1, l = (1 << 1); i < 16; i++, l <<= 1) {
-			unsigned char led = st->ledstate[i] >> (4+DIM);
-			if (dim)
-				led >>= (1+DIM);
-			set_led(l, led);
-		}
-	}
+	ir = ir < LOWTEMP;
+	led_out(st, ir);
 }
 
 
@@ -144,7 +176,7 @@ unsigned char dome_init(void)
 void dome_pix(unsigned char pix)
 {
 	struct st *st = (struct st *)SHBSS;
-	unsigned char peek = getpeek();
+	unsigned char peek;
 
 	TEST(printf("state=%s peek=%d timeout=%d\n", stname(st->state), peek, st->timeout));
 
@@ -170,9 +202,12 @@ void dome_pix(unsigned char pix)
 
 	case NUMB:
 		/* fading display as timeout approaches 0 */
-		cellauto(pix, st, -LOWTEMP);
+		//cellauto(pix, st, -LOWTEMP);
+		fade(st);
 		break;
 	}
+
+	peek = getpeek();
 
 	/* transition */
 	switch(st->state) {
@@ -184,7 +219,7 @@ void dome_pix(unsigned char pix)
 
 		if (RANDPROB(WOOGLEPROB)) {
 			st->state = WOOGLE;
-			st->timeout = WOOGLETIME+(rand()&63);
+			st->timeout = WOOGLETIME+(rand() & WOOGLERAND);
 		}
 		break;
 
@@ -195,12 +230,12 @@ void dome_pix(unsigned char pix)
 
 			if (RANDPROB(EXCITABILITY)) {
 				/* get excited and pretend we were poked */
-				st->poketime = SHORTPOKE + ((unsigned char)rand16() & 0x7);
+				st->poketime = SHORTPOKE + (rand() & POKERAND);
 				goto pretend_poke;
 			}
 		} else if (peek) {
 			st->state = OUCH;
-			st->poketime = 1; /* start - at least one time of poke */
+			st->poketime = 1; /* start - at least one time-unit of poke */
 		}
 		break;
 
@@ -210,7 +245,7 @@ void dome_pix(unsigned char pix)
 		else {
 		  pretend_poke:
 			st->state = BROOD;
-			st->timeout = st->poketime * BROODSCALE;
+			st->timeout = st->poketime * BROODSCALE + (rand() & BROODRAND);
 			st->poketime = LOWTEMP;
 		}
 		break;
@@ -227,21 +262,21 @@ void dome_pix(unsigned char pix)
 			setpoke(1);
 		else {
 			st->state = FLASHY;
-			st->timeout = FLASHTIME+(rand()&31);
+			st->timeout = FLASHTIME+(rand() & FLASHRAND);
 		}
 		break;
 
 	case FLASHY:
 		if (--st->timeout == 0) {
 			st->state = NUMB;
-			st->timeout = NUMBTIME+(rand()&31);
+			st->timeout = NUMBTIME+(rand() & NUMBRAND);
 		}
 		break;
 
 	case NUMB:
 		if (st->timeout) {
 			st->timeout--;
-		} else if (!peek)
+		} else if (!(STUBBORNNUMB && peek))
 			st->state = IDLE;
 		break;
 	}
