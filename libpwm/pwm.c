@@ -109,7 +109,7 @@ extern void __error(void);
 
 static volatile unsigned char pixel;		/* which pixel for this pattern */
 static unsigned char pixelcount = 1;		/* count until next pixel */
-static unsigned char pixeltick = PWMSEC(.02,64);	/* PWM cycles/pixel */
+static unsigned char pixeltick = PWMSEC(.01,64);	/* PWM cycles/pixel */
 //static unsigned char pixeltick = 5;	/* PWM cycles/pixel */
 
 #define HI(x)	((unsigned char)((x)>>8))
@@ -542,7 +542,8 @@ void pwm_run(void)
 		stop_carrier();
 		stop_pwm();
 		outp(0, GIMSK);	/* disable INT0 */
-		outp(1 << INTF0, GIFR);	/* clear spurious pending */
+		if (IRCOMM)
+			outp(1 << INTF0, GIFR);	/* clear spurious pending */
 
 		/* Enable sleep, power-down */
 		outp((1<<SM)|(1<<SE), MCUCR);
@@ -569,8 +570,10 @@ void pwm_run(void)
 
 			edge = falling;
 			outp((1<<SE)|(2<<ISC00), MCUCR);	/* disable powerdown; falling edge */
-			outp((1<<INTF0), GIFR);			/* clear spurious pending */
-			outp((1<<INT0), GIMSK);			/* enable int0 */
+			if (IRCOMM) {
+				outp((1<<INTF0), GIFR);		/* clear spurious pending */
+				outp((1<<INT0), GIMSK);		/* enable int0 */
+			}
 			sei();
 
 			for(;;) {

@@ -7,6 +7,7 @@
 #include "golomb.h"
 
 enum state {
+	POST,			/* self-test */
 	IDLE,			/* all off */
 	WOOGLE,			/* making a small, local show */
 	OUCH,			/* we have been poked */
@@ -14,6 +15,7 @@ enum state {
 	POKE,			/* poke our neighbours */
 	FLASHY,			/* keep flashing */
 	NUMB,			/* ignore pokes */
+	STUCK,			/* poke appears stuck */
 };
 
 #ifdef TESTRIG
@@ -30,6 +32,7 @@ static const char *stname(enum state s)
 		S(POKE);
 		S(FLASHY);
 		S(NUMB);
+		S(STUCK);
 #undef S
 	}
 	return "???";
@@ -38,7 +41,7 @@ static const char *stname(enum state s)
 static enum state _prev_state = -1;
 
 #define DIM	0
-#define TEST(x)	if (0 && st->state != _prev_state) { x; _prev_state = st->state; }
+#define TEST(x)	if (1 && st->state != _prev_state) { x; _prev_state = st->state; }
 #else  /* !TESTRIG */
 #define TEST(x)
 #define DIM	1
@@ -73,7 +76,7 @@ static enum state _prev_state = -1;
 #define RANDPROB(p)	(rand16() <= ((unsigned short)(65536 * (p))))
 
 
-struct st
+static struct st
 {
 	unsigned char timeout;	/* time remaining for next timeout */
 	unsigned char state;	/* our current state */
@@ -82,7 +85,7 @@ struct st
 
 	unsigned char ledstate[16];
 	unsigned char next[16];
-};
+} domestate;
 
 /* just so we don't get more than one rand() */
 static inline unsigned char rand()
@@ -92,11 +95,12 @@ static inline unsigned char rand()
 
 static void led_out(struct st *st, unsigned char dim)
 {
-	unsigned char i;
+	unsigned char *p;
 	unsigned short l;
-			
-	for(i = 1, l = (1 << 1); i < 16; i++, l <<= 1) {
-		unsigned char led = st->ledstate[i] >> (4+DIM);
+
+	p = &st->ledstate[1];
+	for(l = (1 << 1); l != 0; l <<= 1) {
+		unsigned char led = (*p++) >> (4+DIM);
 		if (dim)
 			led >>= (1+DIM);
 		set_led(l, led);
@@ -170,18 +174,24 @@ static void cellauto(unsigned char pix, struct st *st, signed char ir)
 
 unsigned char dome_init(void)
 {
+	return 0;
 	return sizeof(struct st);
 }
 
 void dome_pix(unsigned char pix)
 {
-	struct st *st = (struct st *)SHBSS;
+//	struct st *st = (struct st *)SHBSS;
+	struct st *st = &domestate;
 	unsigned char peek;
 
-	TEST(printf("state=%s peek=%d timeout=%d\n", stname(st->state), peek, st->timeout));
+	TEST(printf("state=%s timeout=%d\n", stname(st->state), st->timeout));
 
 	/* action */
 	switch(st->state) {
+	case POST:
+		set_led(1<<(pix/8), MAX_LVL);
+		break;
+
 	case IDLE:
 		break;
 
@@ -202,15 +212,25 @@ void dome_pix(unsigned char pix)
 
 	case NUMB:
 		/* fading display as timeout approaches 0 */
-		//cellauto(pix, st, -LOWTEMP);
 		fade(st);
 		break;
+
+	case STUCK:
+		/* distress blink if input stuck on */
+		if (pix < 10)
+			set_led(0x8888, MAX_LVL/3);
+		break;
+
 	}
 
 	peek = getpeek();
-
 	/* transition */
 	switch(st->state) {
+	case POST:
+		if (pix > 16*8)
+			st->state = IDLE;
+		break;
+
 	case IDLE:
 		if (peek) {
 			st->state = OUCH;
@@ -240,9 +260,11 @@ void dome_pix(unsigned char pix)
 		break;
 
 	case OUCH:
-		if (peek)
+		if (peek) {
 			st->poketime++;
-		else {
+			if (st->poketime == 0)
+				st->state = STUCK;
+		} else {
 		  pretend_poke:
 			st->state = BROOD;
 			st->timeout = st->poketime * BROODSCALE + (rand() & BROODRAND);
@@ -277,6 +299,11 @@ void dome_pix(unsigned char pix)
 		if (st->timeout) {
 			st->timeout--;
 		} else if (!(STUBBORNNUMB && peek))
+			st->state = IDLE;
+		break;
+
+	case STUCK:
+		if (!peek)
 			st->state = IDLE;
 		break;
 	}
