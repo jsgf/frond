@@ -1,6 +1,6 @@
-#include <interrupt.h>
-#include <sig-avr.h>
-#include <io.h>
+#include <avr/interrupt.h>
+#include <avr/signal.h>
+#include <avr/io.h>
 
 #include "serial.h"
 #include "misc.h"

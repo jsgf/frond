@@ -6,7 +6,8 @@ LDFLAGS=-Wl,-m,avr23xx
 LD_HEX=-Wl,--oformat,ihex
 #LDFLAGS=-mava -Wl,--intel -L. -lpwm
 
-OBJ=pwm.o div16x8u.o serial_rx.o serial_tx.o rand.o
+OBJ=pwm.o div16x8u.o rand.o
+#OBJ+=serial_rx.o serial_tx.o
 
 libpwm all: .lib
 

@@ -20,7 +20,7 @@ extern void *SHBSS;
 #else  /* !TESTRIG */
 extern char __bss_end;
 #define SHBSS	((void *)&__bss_end)
-#include <io.h>
+#include <avr/io.h>
 #endif /* TESTRIG */
 
 unsigned char ir_avg(void);

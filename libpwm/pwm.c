@@ -1,8 +1,9 @@
 /* AVR interrupts */
 
-#include <io.h>
-#include <interrupt.h>
-#include <sig-avr.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <avr/signal.h>
+#include <string.h>
 
 /* Dim over-bright patterns - necessary if LEDs are on 6v and 62706 is
    overheating.  This is pretty expensive in code and memory use.
@@ -336,8 +337,6 @@ SIGNAL(SIG_INTERRUPT0)
 		edge = rising;
 		last = t;
 	} else {
-		unsigned char i;
-
 		if (DEBUG)
 			outp(POKE | PULLUP2, PORT2); /* debug output */
 		outp((1<<SE) | (2<<ISC00), MCUCR);	/* falling edge */

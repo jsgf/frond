@@ -45,7 +45,7 @@ print <<END;
 #define PWM_MARKS	($#ogr)
 
 #ifdef USE_FLASH
-#include <progmem.h>
+#include <avr/pgmspace.h>
 #define FLASH PROGMEM
 #else
 #define FLASH /* */

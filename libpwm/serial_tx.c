@@ -1,5 +1,5 @@
-#include <io.h>
-#include <interrupt.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
 #include "serial.h"
 #include "misc.h"

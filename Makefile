@@ -61,7 +61,7 @@ install: $(TARGET).flash force
 	uisp -dlpt=/dev/parport0 -dprog=stk200 -dpart=at90s2313 --erase --upload if=main.flash --verify
 
 test-%: %.c testrig.c 
-	$(HOST_CC) -O -Wall -g -Ilibpwm -o $@ -DGIZ=$(filter-out testrig,$(^:%.c=%)) -DTESTRIG testrig.c $(filter-out testrig.c,$^) -lglut -lGLU -lGL
+	$(HOST_CC) -O -Wall -g -Ilibpwm -o $@ -DGIZ=$(filter-out testrig,$(^:%.c=%)) -DTESTRIG testrig.c $(filter-out testrig.c,$^) -lglut -lGLU -lGL -L/usr/X11R6/lib -lXmu -lXext -lXi -lX11
 
 force:
 

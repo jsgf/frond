@@ -1,4 +1,5 @@
 //#include <progmem.h>
+#include <string.h>
 #include "pwm.h"
 #include "rand.h"
 #include "golomb.h"
