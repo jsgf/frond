@@ -3,11 +3,13 @@
 #define FRONDGROUP_H
 
 #include <map>
+#include <set>
 
 using namespace std;
 
-class Frond;
 class Gizmo;
+
+#include "Frond.h"
 
 class FrondGroup
 {
@@ -18,6 +20,7 @@ public:
 	void setGizmo(const Gizmo *g);
 
 	typedef map<int, Frond *> Frondmap_t;
+	typedef set<Frond *> Frondset_t;
 
 	// create a new frond and return its id
 	Frond *newFrond(float x, float y);
@@ -45,10 +48,26 @@ public:
 	void draw() const;
 
 	// update fronds
-	void update(Frond *poke) const;
+	void update(const set<Frond *> &poked) const;
+
+	// selection handling
+	void clearSelection();
+	void addSelection(const Frond::coord_t &a);
+	void addSelection(const Frond::coord_t &a, const Frond::coord_t &b);
+	void setSelection(const Frond::coord_t &a);
+	void setSelection(const Frond::coord_t &a, const Frond::coord_t &b);
+
+	bool isSelected(const Frond *) const;
+
+	void select(Frond *);
+	void unSelect(Frond *);
+
+	Frondset_t::iterator firstSelected() const { return selected_.begin(); }
+	Frondset_t::iterator lastSelected() const { return selected_.end(); }	
 
 private:
 	Frondmap_t	fronds_;
+	Frondset_t	selected_;
 
 	const Gizmo	*gizmo_;
 	int		id_;

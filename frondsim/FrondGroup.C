@@ -7,6 +7,7 @@
 #include <string>
 
 #include <assert.h>
+#include <GL/gl.h>
 
 using namespace std;
 
@@ -45,6 +46,16 @@ void FrondGroup::delFrond(Frond *f)
 {
 	assert(fronds_[f->getId()] == f);
 	fronds_.erase(f->getId());
+
+	for(Frondmap_t::iterator it = fronds_.begin();
+	    it != fronds_.end();
+	    it++) {
+		Frond *p = it->second;
+
+		p->delPeer(f);
+	}
+
+	delete f;
 }
 
 void FrondGroup::clearFronds()
@@ -161,11 +172,28 @@ void FrondGroup::draw() const
 	    it++) {
 		const Frond *f = it->second;
 
+		if (isSelected(f)) {
+			Frond::coord_t pos = f->getPos();
+			float x1 = pos.first - (25 + 5);
+			float y1 = pos.second - (12.5 + 5);
+			float x2 = pos.first + (25 + 5);
+			float y2 = pos.second + (12.5 + 5);
+			glColor3f(.25, .25, .25);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ONE, GL_ONE);
+			glBegin(GL_QUADS);
+			glVertex2f(x1, y1);
+			glVertex2f(x2, y1);
+			glVertex2f(x2, y2);
+			glVertex2f(x1, y2);
+			glEnd();
+		}
+
 		f->draw();
 	}
 }
 
-void FrondGroup::update(Frond *poke) const
+void FrondGroup::update(const set<Frond *> &poked) const
 {
 	// do a frame's worth of work
 	for(Frondmap_t::const_iterator it = fronds_.begin();
@@ -182,6 +210,64 @@ void FrondGroup::update(Frond *poke) const
 	    it++) {
 		Frond *f = it->second;
 
-		f->updatePoke(f == poke);
+		f->updatePoke(poked.count(f) != 0);
 	}
+}
+
+
+void FrondGroup::clearSelection()
+{
+	selected_.clear();
+}
+
+void FrondGroup::setSelection(const Frond::coord_t &a)
+{
+	clearSelection();
+	addSelection(a);
+}
+
+void FrondGroup::addSelection(const Frond::coord_t &a)
+{
+	Frond *f = find(a.first, a.second);
+
+	if (f != NULL)
+		selected_.insert(f);
+}
+
+void FrondGroup::addSelection(const Frond::coord_t &a, const Frond::coord_t &b)
+{
+	for(Frondmap_t::const_iterator it = fronds_.begin();
+	    it != fronds_.end();
+	    it++) {
+		Frond *f = it->second;
+		Frond::coord_t p = f->getPos();
+		
+		if (((p.first >= a.first && p.first < b.first) ||
+		     (p.first >= b.first && p.first < a.first)) &&
+		    ((p.second >= a.second && p.second < b.second) ||
+		     (p.second >= b.second && p.second < a.second))) {
+			selected_.insert(f);
+		}
+	}
+}
+
+void FrondGroup::setSelection(const Frond::coord_t &a, const Frond::coord_t &b)
+{
+	clearSelection();
+	addSelection(a, b);
+}
+
+bool FrondGroup::isSelected(const Frond *f) const
+{
+	return selected_.count((Frond *)f) != 0;
+}
+
+void FrondGroup::select(Frond *f) 
+{
+	selected_.insert(f);
+}
+
+void FrondGroup::unSelect(Frond *f) 
+{
+	selected_.erase(f);
 }

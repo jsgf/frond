@@ -1,6 +1,9 @@
 #ifndef _ASSERT_H
 #define _ASSERT_H
 
+#ifdef TESTRIG
+#include_next <assert.h>
+#else  /* !TESTRIG */
 #ifndef NDEBUG
 #define assert(x, y)	do { if (!(x)) { _assert_fail(y); } } while(0)
 
@@ -23,5 +26,6 @@ static int _assert_fail(unsigned char y)
 #else
 #define assert(x, y)
 #endif
+#endif /* TESTRIG */
 
 #endif /* ASSERT_H */

@@ -27,8 +27,6 @@ Gizmo::Gizmo(const string &input_path)
 	unsigned dot = path.rfind('.');
 	string name;
 
-	printf("slash=%d dot=%d\n", slash, dot);
-
 	if (slash != string::npos) {
 		if (dot != string::npos && dot > slash)
 			name.assign(path, slash+1, dot-slash-1);

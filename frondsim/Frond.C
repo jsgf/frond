@@ -206,6 +206,8 @@ void Frond::draw() const
 
 	glMatrixMode(GL_MODELVIEW);
 
+	glPushMatrix();
+
 	//printf("%d: f->x=%d f->y=%d f->w=%d f->h=%d\n", f->self, f->x, f->y, f->w, f->h);
 	glLoadIdentity();
 
@@ -407,6 +409,7 @@ void Frond::draw() const
 	glVertex2i(0, 18);
 
 	glEnd();
+	glPopMatrix();
 	glPopMatrix();
 	glPopMatrix();
 
