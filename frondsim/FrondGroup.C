@@ -167,6 +167,7 @@ void FrondGroup::draw() const
 
 void FrondGroup::update(Frond *poke) const
 {
+	// do a frame's worth of work
 	for(Frondmap_t::const_iterator it = fronds_.begin();
 	    it != fronds_.end();
 	    it++) {
@@ -175,6 +176,7 @@ void FrondGroup::update(Frond *poke) const
 		f->update();
 	}
 
+	// propagate pokes to peer's peeks
 	for(Frondmap_t::const_iterator it = fronds_.begin();
 	    it != fronds_.end();
 	    it++) {

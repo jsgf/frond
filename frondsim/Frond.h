@@ -115,8 +115,8 @@ private:
 	void setRandpool(unsigned short p) { randpool = p; }
 	void setRandpool16(unsigned int p) { randpool16 = p; }
 
-	bool getPeek() const { return peek_; }
-	void setPoke(bool p) { poke_ = p; }
+	bool getPeek() const;
+	void setPoke(bool p);
 	void setLEDs(unsigned short mask, unsigned char level);
 };
 

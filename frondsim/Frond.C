@@ -171,26 +171,29 @@ void Frond::update()
 	peek_ = false;
 }
 
-void Frond::incPhaseCol(int phase)
-{
-	assert(phase >= 0 && phase < 5);
-
-	phasecol_[phase] = (phasecol_[phase] + 1) % NCOL;
-}
-
 // poke our peers for the next frame
 void Frond::updatePoke(bool keypoke)
 {
 	// we're being poked from the keyboard
-	peek_ = keypoke;
+	peek_ = peek_ || keypoke;
 
 	// first, poke our peers if update set our poke_
 	if (poke_) {
 		for(peerset_t::iterator it = peers_.begin();
 		    it != peers_.end();
-		    it++)
-			(*it)->peek_ = true;
+		    it++) {
+			Frond *p = *it;
+
+			p->peek_ = true;
+		}
 	}
+}
+
+void Frond::incPhaseCol(int phase)
+{
+	assert(phase >= 0 && phase < 5);
+
+	phasecol_[phase] = (phasecol_[phase] + 1) % NCOL;
 }
 
 void Frond::draw() const
@@ -415,4 +418,14 @@ void Frond::setLEDs(unsigned short mask, unsigned char level)
 	for(int i = 0; mask != 0; i++, mask >>= 1)
 		if (mask & 1)
 			leds_[i] = level;
+}
+
+bool Frond::getPeek() const
+{
+	return peek_;
+}
+
+void Frond::setPoke(bool p)
+{
+	poke_ = p;
 }
