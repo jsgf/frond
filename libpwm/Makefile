@@ -6,7 +6,7 @@ LDFLAGS=-Wl,-m,avr23xx
 LD_HEX=-Wl,--oformat,ihex
 #LDFLAGS=-mava -Wl,--intel -L. -lpwm
 
-OBJ=pwm.o div16x8u.o rand.o
+OBJ=pwm.o div16x8u.o rand.o rand16.o
 #OBJ+=serial_rx.o serial_tx.o
 
 libpwm all: .lib
@@ -29,7 +29,9 @@ golomb.h: mkgolomb.pl
 	perl ./mkgolomb.pl > $@ || rm -f $@
 
 rand.o: rand.c force
-	$(CC) -c $(CFLAGS) -DSEED="0x`od -N2 -h < /dev/urandom | awk '{print $$2}'`" rand.c
+	$(CC) -c $(CFLAGS) -DSEED="`mkrandom 2`" rand.c
+rand16.o: rand16.c force
+	$(CC) -c $(CFLAGS) -DSEED="`mkrandom 4`" rand16.c
 
 force:
 

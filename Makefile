@@ -6,7 +6,7 @@ PROGS = main testpat
 
 GIZLIST = flame2.o flicker.o kitt.o spiral.o flame.o spiral.o ramp.o rps.o full.o sync.o kitt.o echo.o testpat.o null.o xfade.o
 
-GIZMOS = cellauto.o
+GIZMOS = dome.o
 
 GC=gizmos-$(subst \ ,-,$(strip $(GIZMOS:%.o=%))).c
 

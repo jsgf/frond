@@ -22,7 +22,7 @@ PWM=$(TOP)/libpwm/libpwm.a
 	$(AS) -c -o $@ $<
 
 %.s: %.c
-	$(CC) $(CFLAGS) -S $<
+	$(CC) $(CFLAGS) -g0 -S $<
 
 %.flash: %
 	avr-objcopy -O ihex $< $@ || rm -f $@

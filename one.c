@@ -9,5 +9,5 @@ unsigned char one_init(void)
 
 void one_pix(unsigned char pix)
 {
-	set_led(1, MAX_LVL);
+	set_led(0x8000, MAX_LVL);
 }

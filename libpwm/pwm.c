@@ -8,7 +8,9 @@
 /* Dim over-bright patterns - necessary if LEDs are on 6v and 62706 is
    overheating.  This is pretty expensive in code and memory use.
 */
-//#define AUTODIM
+#define AUTODIM	0
+
+#define IRCOMM 0
 
 
 #define PWM_C
@@ -51,6 +53,7 @@
 #define PEEK	(1 << 4)
 
 #define PORT2	PORTD
+#define PORT2IN	PIND
 #define DDR2	DDRD
 #define OUT2	(0)
 #define PULLUP2	(PEEK | POKE | IRIN)
@@ -106,7 +109,7 @@ extern void __error(void);
 
 static volatile unsigned char pixel;		/* which pixel for this pattern */
 static unsigned char pixelcount = 1;		/* count until next pixel */
-static unsigned char pixeltick = PWMSEC(.05,64);	/* PWM cycles/pixel */
+static unsigned char pixeltick = PWMSEC(.02,64);	/* PWM cycles/pixel */
 //static unsigned char pixeltick = 5;	/* PWM cycles/pixel */
 
 #define HI(x)	((unsigned char)((x)>>8))
@@ -323,6 +326,7 @@ static unsigned char ir_reading;
 // on rising edge, sets ir_time to low period
 SIGNAL(SIG_INTERRUPT0)
 {
+#if IRCOMM
 	static unsigned char last;
 	unsigned char t;
 
@@ -345,11 +349,14 @@ SIGNAL(SIG_INTERRUPT0)
 		ir_reading = t - last;
 	}
 #undef DEBUG
+
+#endif /* IRCOMM */
 }
 
 /* weighted average (most recent samples get heavier weighting) */
 unsigned char ir_avg(void)
 {
+#if IRCOMM
 	static unsigned char ir_weight;
 	unsigned char i = ir_reading;
 
@@ -366,8 +373,10 @@ unsigned char ir_avg(void)
 		i /= 8;
 		ir_weight += i;
 	}
-
 	return ir_weight;
+#else	/* !IRCOMM */
+	return 0;
+#endif	/* IRCOMM */
 }
 
 unsigned char ir_input(void)
@@ -375,7 +384,7 @@ unsigned char ir_input(void)
 	return ir_reading;
 }
 
-#ifdef AUTODIM
+#if AUTODIM
 /* Dim output if the average intensity over NHIST frames exceeds
  * THRESH.  Output is dimmed by DIMSCALE over DIMTIME frames. */
 #define NHIST		((unsigned char)4)
@@ -417,7 +426,7 @@ static void _set_led(unsigned short ledmask, unsigned char bright)
 
 	bright -= MIN_LVL;
 
-#ifdef AUTODIM
+#if AUTODIM
 	{
 		unsigned short l = ledmask;
 
@@ -451,7 +460,7 @@ static void _set_led(unsigned short ledmask, unsigned char bright)
 
 void set_led(unsigned short ledmask, unsigned char bright)
 {
-	if (ledmask & IR_LED) {
+	if (IRCOMM && (ledmask & IR_LED)) {
 		/* allow main loop to control IR LED xmit frequency */
 		ir_level = bright;
 		ledmask &= ~IR_LED;
@@ -469,7 +478,7 @@ static inline void flip(void)
 
 	pwmstate.idx = 0;	/* restart pwm cycle */
 
-#ifdef AUTODIM
+#if AUTODIM
 	{
 		/* compute sum of history and see if we're over the 
 		   threshhold */
@@ -501,6 +510,9 @@ static inline void flip(void)
 #define ST_SWITCH	2	/* switch to a new gizmo */
 
 static volatile unsigned char state = ST_ON;
+
+/* Whether we're poking or not */
+static unsigned char pokestate;
 
 void pwm_run(void)
 {
@@ -555,7 +567,6 @@ void pwm_run(void)
 			outp((1<<SE)|(2<<ISC00), MCUCR);	/* disable powerdown; falling edge */
 			outp((1<<INTF0), GIFR);			/* clear spurious pending */
 			outp((1<<INT0), GIMSK);			/* enable int0 */
-
 			sei();
 
 			for(;;) {
@@ -567,7 +578,7 @@ void pwm_run(void)
 				(*gizmo)(pix);
 				
 				/* output IR at random intervals */
-				if (rand() < (unsigned char)(.2 * 256)) /* 20% */
+				if (IRCOMM && (rand() < (unsigned char)(.2 * 256))) /* 20% */
 					_set_led(IR_LED, ir_level);
 
 				/* Wait for either
@@ -583,6 +594,18 @@ void pwm_run(void)
 					break;
 			
 				flip();
+				
+				if (pokestate) {
+					/* assert POKE */
+					outp(PULLUP2 & ~POKE, PORT2);	/* clear POKE */
+					outp(POKE, DDR2);		/* make output */
+				} else {
+					/* deassert POKE */
+					outp(PULLUP2|POKE, PORT2);	/* with pullup */
+					outp(OUT2, DDR2);		/* make POKE an input */
+				}
+				pokestate = 0; /* need explicit re-triggering */
+
 				sei();
 			}
 			/* interrupts disabled here */
@@ -598,4 +621,19 @@ void pwm_run(void)
 				state = ST_ON;
 		}
 	}
+}
+
+/* poke and peek signals are active-low */
+unsigned char getpeek()
+{
+	unsigned char p = inp(PORT2IN);
+
+	p &= PEEK;
+
+	return !p;
+}
+
+void setpoke(unsigned char p)
+{
+	pokestate = p;
 }

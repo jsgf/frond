@@ -101,7 +101,7 @@ static void keyboard(unsigned char k, int x, int y)
 }
 
 static int pix;
-static int timebase = .01 * 1000;
+static int timebase = .02 * 1000;
 
 static void timer(int t)
 {
@@ -326,6 +326,42 @@ void handler(int sig)
 
 static unsigned short rand_pool = SEED;
 
+unsigned char rand(void)
+{
+	unsigned short r = rand_pool;
+
+	if (r & 1) {
+		r >>= 1;
+		r ^= 0x8016;
+	} else
+		r >>= 1;
+
+	rand_pool = r;
+
+	return r;
+}
+
+#if SEED16 == 0
+#define SEED16 ((unsigned int)0xc3a8623d)
+#endif
+
+static unsigned int rand_pool16 = SEED16;
+
+unsigned short rand16(void)
+{
+	unsigned int r = rand_pool16;
+
+	if (r & 1) {
+		r >>= 1;
+		r ^= 0x6055F65b;
+	} else
+		r >>= 1;
+
+	rand_pool16 = r;
+
+	return r;
+}
+
 int main(int argc, char **argv)
 {
 	char name[100];
@@ -339,7 +375,11 @@ int main(int argc, char **argv)
 
 	glutInit(&argc, argv);
 
-	while((arg = getopt(argc, argv, "s:p:")) != EOF) {
+	srandom(getpid() + time(NULL));
+
+	while((arg = getopt(argc, argv, "rs:p:")) != EOF) {
+		int i;
+
 		switch(arg) {
 		case 's':
 			self = atoi(optarg);
@@ -350,6 +390,10 @@ int main(int argc, char **argv)
 				exit(1);
 			}
 			peers[npeers++] = atoi(optarg);
+			break;
+		case 'r':
+			for(i = 0; i < 4; i++)
+				phasecol[i] = random() % NCOL;
 			break;
 		}
 	}
@@ -375,8 +419,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-	srandom(getpid() + time(NULL));
-	rand_pool = random() | 1;
+	do {
+		rand_pool = random();
+	} while(rand_pool == 0);
+	do {
+		rand_pool16 = random();
+	} while(rand_pool16 == 0);
 
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 	//glutInitWindowSize(400, 200);
@@ -408,21 +456,6 @@ void set_led(unsigned short mask, unsigned char level)
 			led[i] = level;
 		mask >>= 1;
 	}
-}
-
-unsigned char rand(void)
-{
-	unsigned short r = rand_pool;
-
-	if (r & 1) {
-		r >>= 1;
-		r ^= 0x8016;
-	} else
-		r >>= 1;
-
-	rand_pool = r;
-
-	return r;
 }
 
 unsigned char ir_input(void)
