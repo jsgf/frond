@@ -29,7 +29,7 @@ private:
 
 	friend class Frond;
 
-	Frond *frond_;
+	class Frond *frond_;
 
 	int init() const;
 	void pix(unsigned char pix, Frond *f) const;

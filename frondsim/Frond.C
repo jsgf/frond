@@ -21,6 +21,9 @@ static const float colours[][3] = {
 };
 #define NCOL	((sizeof(colours)/sizeof(*colours))-1)
 
+const float Frond::width_;
+const float Frond::height_;
+
 Frond::Frond(int id, const Gizmo *giz)
 	: enabled_(false),
 	  self_(id),

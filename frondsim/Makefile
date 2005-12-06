@@ -1,8 +1,9 @@
 
 CXXFLAGS=-Wall -g -O
 
-frondsim: main.o Frond.o Gizmo.o FrondGroup.o
-	$(CXX) -Wl,--export-dynamic -Wl,--version-script,$@.vs -o $@ $^ -ldl -lglut -lGLU -lGL -L/usr/X11R6/lib -lXmu -lXi -lXext -lX11
+frondsim: main.o Frond.o Gizmo.o FrondGroup.o frondsim.vs
+	$(CXX) -Wl,--export-dynamic -Wl,--version-script,$@.vs -o $@ $(filter %.o,$^) \
+		-ldl -lglut -lGLU -lGL -L/usr/X11R6/lib -lXmu -lXi -lXext -lX11
 
 main.o: Frond.h FrondGroup.h Gizmo.h
 Frond.o: Frond.h
